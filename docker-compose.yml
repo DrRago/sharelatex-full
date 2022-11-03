@@ -1,0 +1,79 @@
+version: '2.2'
+services:
+    sharelatex:
+        restart: always
+        build: .
+        networks:
+          - sharelatex
+          - proxy
+        depends_on:
+            mongo:
+                condition: service_healthy
+            redis:
+                condition: service_started
+        links:
+            - mongo
+            - redis
+        volumes:
+            - sharelatex_data:/var/lib/sharelatex
+        labels:
+            traefik.enable: true
+            traefik.http.routers.overleaf.rule: Host(`${SITE_URL}`)
+            traefik.http.routers.overleaf.middlewares: error-pages
+            traefik.docker.network: proxy
+        environment:
+
+            SHARELATEX_APP_NAME: ${APP_NAME}
+            SHARELATEX_MONGO_URL: ${MONGO_HOST}
+            SHARELATEX_REDIS_HOST: ${REDIS_HOST}
+            REDIS_HOST: ${REDIS_HOST}
+            
+            SHARELATEX_ALLOW_PUBLIC_ACCESS: ${ALLOW_PUBLIC_ACCESS}
+            SHARELATEX_ALLOW_ANONYMOUS_READ_AND_WRITE_SHARING: ${ALLOW_ANONYMOUS_READ_AND_WRITE_SHARING}
+            ENABLED_LINKED_FILE_TYPES: ${ENABLED_LINKED_FILE_TYPES}
+
+            ENABLE_CONVERSIONS: ${ENABLE_CONVERSIONS}
+
+            # Disables email confirmation requirement
+            EMAIL_CONFIRMATION_DISABLED: ${EMAIL_CONFIRMATION_DISABLED}
+
+            TEXMFVAR: ${TEXMFVAR}
+            
+            SHARELATEX_SITE_URL: https://${SITE_URL}
+            SHARELATEX_NAV_TITLE: ${SITE_TITLE}
+            SHARELATEX_ADMIN_EMAIL: ${ADMIN_MAIL}
+
+    mongo:
+        restart: always
+        image: mongo:4.2
+        networks:
+          - sharelatex
+        expose:
+            - 27017
+        volumes:
+            - mongo_data:/data/db
+        healthcheck:
+            test: echo 'db.stats().ok' | mongo localhost:27017/test --quiet
+            interval: 10s
+            timeout: 10s
+            retries: 5
+
+    redis:
+        restart: always
+        image: redis:5
+        networks:
+          - sharelatex
+        expose:
+            - 6379
+        volumes:
+            - redis_data:/data
+            
+networks:
+    sharelatex:
+    proxy:
+        external: true
+    
+volumes:
+    sharelatex_data:
+    mongo_data:
+    redis_data:
